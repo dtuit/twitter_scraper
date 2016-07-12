@@ -6,3 +6,4 @@ __pycache__
 output*.txt
 keys.json
 tweets*
+*.db
