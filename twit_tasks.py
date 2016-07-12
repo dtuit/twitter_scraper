@@ -1,6 +1,6 @@
 from celery import Celery, signals
 from datetime import datetime, timezone
-import TwitterWebsiteSearch as twitSearch
+import twitterWebsiteSearch.TwitterWebsiteSearch as twitSearch
 import pymssql
 import json
 from requests import Session
