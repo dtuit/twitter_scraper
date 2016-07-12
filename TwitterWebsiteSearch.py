@@ -1,6 +1,6 @@
 import requests
 from requests import Request, Session
-from datetime import datetime 
+from datetime import datetime, timezone
 from time import sleep
 import lxml
 import lxml.html as lh
@@ -121,7 +121,7 @@ def _parse_tweet(tweetElement):
     
     date_span = content_div.cssselect('span._timestamp')
     if len(date_span) > 0:
-        tweet['created_at'] = datetime.utcfromtimestamp(int(date_span[0].get('data-time-ms'))/1000)
+        tweet['created_at'] = datetime.fromtimestamp(int(date_span[0].get('data-time-ms'))/1000, timezone.utc).strftime('%Y-%m-%d %H:%M:%S%z') 
     
     counts = li.cssselect('span.ProfileTweet-action--retweet, span.ProfileTweet-action--favorite')
     if len(counts) > 0:
@@ -308,7 +308,7 @@ class TwitterPager():
                         break
 
             if max_tweet_id is None:
-                max_tweet_id = result['tweets'][1]['id_str']
+                max_tweet_id = result['tweets'][0]['id_str']
             
             # In a high volume search query like 'a' must use the max_tweet_id provided by the result,
             # otherwise the same results will be returned many times. (only happens during the first ~10 pages of results)

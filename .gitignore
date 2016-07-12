@@ -1,7 +1,8 @@
 *~
 __pycache__
 .vscode
+*.pyc
+
 output*.txt
 keys.json
-
 tweets*
