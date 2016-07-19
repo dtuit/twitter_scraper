@@ -73,3 +73,5 @@ def insert_into_DB(tweets):
     flattened_vals = [item for sublist in vals_to_insert for item in sublist]
     cursor.execute(query,tuple(flattened_vals))
     db_conn.commit()
+
+    # urls = [urlobj for tweet in tweets for urlobj in tweet.entities.urls]
