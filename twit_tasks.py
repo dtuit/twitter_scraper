@@ -1,25 +1,21 @@
-from celery import Celery, signals
+from celery import Celery, signals, Task
 from datetime import datetime, timezone
 import twitterWebsiteSearch.TwitterWebsiteSearch as twitSearch
 import pymssql
 import json
-from requests import Session
+import requests
 from math import floor
 
 app = Celery('tasks')
 app.config_from_object('celeryconfig')
 
 db_conn = None
-http_session = None
 
 @signals.worker_process_init.connect
 def init_worker(**kwargs):
     global db_conn
     print('Initializing database connection for worker.')
-    db_conn = get_db_conn()
-    print('Initializing http session for worker.')
-    http_session = Session()
- 
+    db_conn = get_db_conn() 
     
 def get_db_conn():
     keys = get_keys()
@@ -37,29 +33,51 @@ def shutdown_worker(**kwargs):
         print('Closing database connectionn for worker.')
         db_conn.close()
 
+class TwitSearchTask(Task):
+    abstract = True
+
+    # cached requests.Session object
+    _session = None
+
+    def __init__(self):
+        pass
+    
+    @property
+    def session(self):
+        if self._session is None:
+            session = requests.Session()
+            self._session = session
+
+        return self._session
+
 @app.task
 def search_twitter_parallel_dispacher(query, concurrency):
     initial = twitSearch.search(query, aditional_params={'reset_error_state' : 'true'})
     min_pos = initial['_result_json'].get('min_position')
+    since = 683072231455375360 # id from around 2015-12-30
     if min_pos is not None:
         # min = min_pos.split('-')[1]
         max = int(min_pos.split('-')[2])
-    increment = floor(max / concurrency)
+    increment = floor( (max - since) / concurrency)
     for i in range(concurrency):
         min = max-(i*increment)
         search_twitter_page.delay(query, str(min), str(max), str(min-increment))
 
-@app.task
-def search_twitter_page(query, min=None, max=None, next_min=None):
+@app.task(base=TwitSearchTask,  bind=True)
+def search_twitter_page(self, query, min=None, max=None, next_min=None):
     print(min + " " +  max + " " + next_min)
-    result = twitSearch.search(query, min, max, session=http_session)
-    if max is None:
-        max = result['tweets'][0]['id_str']
-    min = result['tweets'][-1]['id_str']
-    if int(min) <= int(max) and int(min) > int(next_min):
-        # return result['tweets']
-        insert_into_DB.delay(result['tweets'])
-        search_twitter_page.delay(query, min, max, next_min)
+    result = twitSearch.search(query, min, max, session=self.session)
+    
+    if len(result['tweets']) == 0:
+        pass
+    else:
+        if max is None:
+            max = result['tweets'][0]['id_str']
+        min = result['tweets'][-1]['id_str']
+        if int(min) <= int(max) and int(min) > int(next_min):
+            # return result['tweets']
+            insert_into_DB.delay(result['tweets'])
+            search_twitter_page.delay(query, min, max, next_min)
 
 @app.task
 def insert_into_DB(tweets):
@@ -75,3 +93,13 @@ def insert_into_DB(tweets):
     db_conn.commit()
 
     # urls = [urlobj for tweet in tweets for urlobj in tweet.entities.urls]
+
+def main():
+    tags = ['#AAPL','#GOOG','#GOOGL','#MSFT','#BRK.A','#BRK.B','#XOM','#FB','#JNJ','#GE','#AMZN','#WFC','$AAPL','$GOOG','$GOOGL','$MSFT','$BRK.A','$BRK.B','$XOM','$FB','$JNJ','$GE','$AMZN','$WFC']
+    tags.append('$BRKA')
+    tags.append('$BRKB')
+    tags.append('#BRKA')
+    tags.append('#BRKB')
+    for tag in tags:
+        search_twitter_parallel_dispacher.delay(tag, 10)
+    
