@@ -1,4 +1,4 @@
-#Twitter_Scraper
+# Twitter_Scraper
 
 *NOTE: currently under development*
 
@@ -6,7 +6,7 @@ Scrapes tweets from twitter.com and inserts into a SQL server database.
 Uses [Celery](http://www.celeryproject.org/) the asynchronous task queue as a framework.  
 Tested on Ubuntu 14.04 with pyhton 3.4  
 
-###Install requirements
+### Install requirements
 
 * Python
  * [Celery](http://www.celeryproject.org/) 
